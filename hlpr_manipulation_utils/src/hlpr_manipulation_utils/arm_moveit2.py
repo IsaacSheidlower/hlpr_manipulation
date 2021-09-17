@@ -211,6 +211,23 @@ class ArmMoveIt:
         except rospy.ServiceException, e:
             rospy.logerr("Service call failed: {}".format(e))
 
+    def get_joint_collision(self, joints = None):
+        '''Gets whether a given joint of the arm pose is in collision 
+        with an object in the scene or not. If no joints
+        are provided, checks if the current pose is in collision.
+        
+        Parameters
+        ----------
+        joints : list or dictionary, optional
+            If not provided, gives FK for all joints set to value of pi.
+
+        Returns
+        ----------
+        bool
+            True on success
+        '''
+        rospy.wait_for_service('/check_state_validity')
+
     def plan_joint_pos(self, target, starting_config=None, group_id=0):
         """ Plan a trajectory to reach a given joint configuration
         
