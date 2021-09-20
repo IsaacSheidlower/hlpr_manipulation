@@ -136,7 +136,12 @@ class ArmMoveIt:
 
         try:
             jointAngle=compute_ik(msgs_request)
-            ans=list(jointAngle.solution.joint_state.position[1:7])
+            arm_index = 1
+            for i in range(len(list(jointAngle.solution.joint_state.position))):
+                if "j2" in list(jointAngle.solution.joint_state.position[i]):
+                    arm_index = i 
+                    break
+            ans=list(jointAngle.solution.joint_state.position[arm_index:arm_index+7])
             if jointAngle.error_code.val == -31:
                 rospy.logerr('No IK solution')
                 return None
@@ -244,9 +249,9 @@ class ArmMoveIt:
             body_1 = collisions.contacts[i].contact_body_1
             body_2 = collisions.contacts[i].contact_body_2
             if "j2" in body_1 or "j2" in body_2:
-                return False
+                return True
         
-        return True
+        return False
 
     def get_arm_collisions(self, joints = None):
         '''Returns a list of collisions with the arm given a joint pose. 
