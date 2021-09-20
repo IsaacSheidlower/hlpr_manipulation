@@ -7,6 +7,7 @@ import rospy
 import moveit_commander
 import moveit_msgs.msg
 import moveit_msgs.srv
+from moveit_msgs.srv import GetStateValidityRequest, GetStateValidity
 import geometry_msgs.msg
 import std_msgs.msg
 import wpi_jaco_msgs.msg
@@ -211,7 +212,7 @@ class ArmMoveIt:
         except rospy.ServiceException, e:
             rospy.logerr("Service call failed: {}".format(e))
 
-    def get_joint_collision(self, joints = None):
+    def check_arm_collision(self, joints = None):
         '''Gets whether a given joint of the arm pose is in collision 
         with an object in the scene or not. If no joints
         are provided, checks if the current pose is in collision.
@@ -219,7 +220,79 @@ class ArmMoveIt:
         Parameters
         ----------
         joints : list or dictionary, optional
-            If not provided, gives FK for all joints set to value of pi.
+            If not provided, uses current joint pos.
+
+        Returns
+        ----------
+        bool
+            True if arm is in collision. False otherwise.
+        '''
+        rospy.wait_for_service('/check_state_validity')
+        collison_service = rospy.ServiceProxy('/check_state_validity', GetStateValidity)
+
+        if joints is None:
+            joints = self.get_current_pose()
+
+        robot_state = self.state_from_joints(joints)
+
+        validityRequest = GetStateValidityRequest()
+        validityRequest.robot_state=robot_state
+        
+        collisions = collison_service(validityRequest)
+        
+        for i in range(len(collisions.contacts)):
+            body_1 = collisions.contacts[i].contact_body_1
+            body_2 = collisions.contacts[i].contact_body_2
+            if "j2" in body_1 or "j2" in body_2:
+                return False
+        
+        return True
+
+    def get_arm_collisions(self, joints = None):
+        '''Returns a list of collisions with the arm given a joint pose. 
+        If no joints are provided, checks if the current pose 
+        is in collision.
+        
+        Parameters
+        ----------
+        joints : list or dictionary, optional
+            If not provided, uses current joint pos.
+
+        Returns
+        ----------
+        list
+            list of tuples containing arm collisions.
+        '''
+        rospy.wait_for_service('/check_state_validity')
+        collison_service = rospy.ServiceProxy('/check_state_validity', GetStateValidity)
+
+        if joints is None:
+            joints = self.get_current_pose()
+
+        robot_state = self.state_from_joints(joints)
+
+        validityRequest = GetStateValidityRequest()
+        validityRequest.robot_state=robot_state
+        
+        collisions = collison_service(validityRequest)
+        
+        collision_list = []
+        for i in range(len(collisions.contacts)):
+            body_1 = collisions.contacts[i].contact_body_1
+            body_2 = collisions.contacts[i].contact_body_2
+            if "j2" in body_1 or "j2" in body_2:
+                collision_list.append((body_1, body_2))
+        
+        return collision_list
+
+    def check_robot_collision(self, joints = None):
+        '''Gets whether any part of the robot is currently in collision 
+        or not. Optionally can provide joints. 
+        
+        Parameters
+        ----------
+        joints : list or dictionary, optional
+            If not provided, uses current joint pos.
 
         Returns
         ----------
@@ -227,6 +300,57 @@ class ArmMoveIt:
             True on success
         '''
         rospy.wait_for_service('/check_state_validity')
+        collison_service = rospy.ServiceProxy('/check_state_validity', GetStateValidity)
+
+        if joints is None:
+            joints = self.get_current_pose()
+
+        robot_state = self.state_from_joints(joints)
+
+        validityRequest = GetStateValidityRequest()
+        validityRequest.robot_state=robot_state
+        
+        collisions = collison_service(validityRequest)
+        
+        if len(collisions.contacts) == 0:
+            return False
+        return True
+
+    def get_robot_collisions(self, joints = None):
+        '''Returns a list of collisions with the robot given a joint pose. 
+        If no joints are provided, checks if the current pose 
+        is in collision.
+        
+        Parameters
+        ----------
+        joints : list or dictionary, optional
+            If not provided, uses current joint pos.
+
+        Returns
+        ----------
+        list
+            list of tuples containing robot collisions.
+        '''
+        rospy.wait_for_service('/check_state_validity')
+        collison_service = rospy.ServiceProxy('/check_state_validity', GetStateValidity)
+
+        if joints is None:
+            joints = self.get_current_pose()
+
+        robot_state = self.state_from_joints(joints)
+
+        validityRequest = GetStateValidityRequest()
+        validityRequest.robot_state=robot_state
+        
+        collisions = collison_service(validityRequest)
+        
+        collision_list = []
+        for i in range(len(collisions.contacts)):
+            body_1 = collisions.contacts[i].contact_body_1
+            body_2 = collisions.contacts[i].contact_body_2
+            collision_list.append((body_1, body_2))
+        
+        return collision_list
 
     def plan_joint_pos(self, target, starting_config=None, group_id=0):
         """ Plan a trajectory to reach a given joint configuration
